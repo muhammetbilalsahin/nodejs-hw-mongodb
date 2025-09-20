@@ -6,11 +6,17 @@ function setupServer() {
 
   app.use(express.json());
 
+  // Router
   app.use('/api/contacts', contactsRouter);
 
   // Health check
   app.get('/', (req, res) => {
-    res.send('API is running ');
+    res.send('API is running');
+  });
+
+  // 404  JSON
+  app.use((req, res) => {
+    res.status(404).json({ message: 'Route not found' });
   });
 
   const PORT = process.env.PORT || 3000;

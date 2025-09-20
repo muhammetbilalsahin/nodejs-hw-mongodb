@@ -4,6 +4,15 @@ const Contact = require('../db/Contact');
 const getContacts = async (req, res) => {
   try {
     const contacts = await Contact.find({});
+
+    if (!contacts || contacts.length === 0) {
+      return res.status(404).json({
+        status: 404,
+        message: 'No contacts found',
+        data: [],
+      });
+    }
+
     res.status(200).json({
       status: 200,
       message: 'Successfully found contacts!',
@@ -11,7 +20,7 @@ const getContacts = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
