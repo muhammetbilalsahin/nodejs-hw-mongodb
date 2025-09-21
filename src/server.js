@@ -6,15 +6,18 @@ function setupServer() {
 
   app.use(express.json());
 
-  // Router
+  // Routers
   app.use('/api/contacts', contactsRouter);
+
+  // Alternatif route
+  app.use('/contacts', contactsRouter);
 
   // Health check
   app.get('/', (req, res) => {
     res.send('API is running');
   });
 
-  // 404  JSON
+  // 404 handler - JSON dönsün
   app.use((req, res) => {
     res.status(404).json({ message: 'Route not found' });
   });
