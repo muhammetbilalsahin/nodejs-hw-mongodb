@@ -1,14 +1,16 @@
 const Contact = require('../db/Contact');
 
-async function getAllContacts() {
-  return Contact.find({});
-}
-
-async function getContactById(id) {
-  return Contact.findById(id);
-}
+const getAllContacts = () => Contact.find({});
+const getContactById = (id) => Contact.findById(id);
+const addContact = (data) => Contact.create(data);
+const patchContact = (id, data) =>
+  Contact.findByIdAndUpdate(id, data, { new: true });
+const removeContact = (id) => Contact.findByIdAndDelete(id);
 
 module.exports = {
   getAllContacts,
   getContactById,
+  addContact,
+  patchContact,
+  removeContact,
 };
