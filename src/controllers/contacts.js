@@ -5,78 +5,122 @@ const {
   patchContact,
   removeContact,
 } = require('../services/contacts');
+
 const createError = require('http-errors');
-const mongoose = require('mongoose'); // ObjectId kontrolü için
 
-const getContacts = async (req, res) => {
-  const contacts = await getAllContacts();
-  res.status(200).json({
-    status: 200,
-    message: 'Successfully found contacts!',
-    data: contacts,
-  });
-};
+// 🔹 GET /contacts?type=work&isFavourite=true&page=1&perPage=10&sortBy=name&sortOrder=asc
+const getContacts = async (req, res, next) => {
+  try {
+    const {
+      page = 1,
+      perPage = 10,
+      sortBy = 'name',
+      sortOrder = 'asc',
+      type,
+      isFavourite,
+    } = req.query;
 
-const getContact = async (req, res) => {
-  const { contactId } = req.params;
+    const query = {};
+    if (type) query.contactType = type;
+    if (isFavourite !== undefined) query.isFavourite = isFavourite === 'true';
 
-  if (!mongoose.Types.ObjectId.isValid(contactId)) {
-    throw createError(404, 'Contact not found'); // Geçersiz ID
+    const result = await getAllContacts({
+      page,
+      perPage,
+      sortBy,
+      sortOrder,
+      query,
+    });
+
+    res.status(200).json({
+      status: 200,
+      message: 'Successfully found contacts!',
+      data: result,
+    });
+  } catch (error) {
+    next(error);
   }
-
-  const contact = await getContactById(contactId);
-  if (!contact) throw createError(404, 'Contact not found');
-
-  res.status(200).json({
-    status: 200,
-    message: 'Successfully found contact!',
-    data: contact,
-  });
 };
 
-const createContact = async (req, res) => {
-  const contact = await addContact(req.body);
-  res.status(201).json({
-    status: 201,
-    message: 'Successfully created a contact!',
-    data: contact,
-  });
-};
+// 🔹 GET /contacts/:contactId
+const getContactByIdCtrl = async (req, res, next) => {
+  try {
+    const { contactId } = req.params;
+    const contact = await getContactById(contactId);
 
-const updateContact = async (req, res) => {
-  const { contactId } = req.params;
+    if (!contact) {
+      throw createError(404, `Contact with id=${contactId} not found`);
+    }
 
-  if (!mongoose.Types.ObjectId.isValid(contactId)) {
-    throw createError(404, 'Contact not found'); // Geçersiz ID
+    res.status(200).json({
+      status: 200,
+      message: 'Successfully found contact!',
+      data: contact,
+    });
+  } catch (error) {
+    next(error);
   }
-
-  const contact = await patchContact(contactId, req.body);
-  if (!contact) throw createError(404, 'Contact not found');
-
-  res.status(200).json({
-    status: 200,
-    message: 'Successfully patched a contact!',
-    data: contact,
-  });
 };
 
-const deleteContact = async (req, res) => {
-  const { contactId } = req.params;
+// 🔹 POST /contacts
+const addContactCtrl = async (req, res, next) => {
+  try {
+    const newContact = await addContact(req.body);
 
-  if (!mongoose.Types.ObjectId.isValid(contactId)) {
-    throw createError(404, 'Contact not found'); // Geçersiz ID
+    res.status(201).json({
+      status: 201,
+      message: 'Successfully added contact!',
+      data: newContact,
+    });
+  } catch (error) {
+    next(error);
   }
+};
 
-  const contact = await removeContact(contactId);
-  if (!contact) throw createError(404, 'Contact not found');
+// 🔹 PATCH /contacts/:contactId
+const patchContactCtrl = async (req, res, next) => {
+  try {
+    const { contactId } = req.params;
+    const updatedContact = await patchContact(contactId, req.body);
 
-  res.status(204).json();
+    if (!updatedContact) {
+      throw createError(404, `Contact with id=${contactId} not found`);
+    }
+
+    res.status(200).json({
+      status: 200,
+      message: 'Successfully updated contact!',
+      data: updatedContact,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 🔹 DELETE /contacts/:contactId
+const removeContactCtrl = async (req, res, next) => {
+  try {
+    const { contactId } = req.params;
+    const deletedContact = await removeContact(contactId);
+
+    if (!deletedContact) {
+      throw createError(404, `Contact with id=${contactId} not found`);
+    }
+
+    res.status(200).json({
+      status: 200,
+      message: 'Successfully removed contact!',
+      data: deletedContact,
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 module.exports = {
   getContacts,
-  getContact,
-  createContact,
-  updateContact,
-  deleteContact,
+  getContactById: getContactByIdCtrl,
+  addContact: addContactCtrl,
+  patchContact: patchContactCtrl,
+  removeContact: removeContactCtrl,
 };
