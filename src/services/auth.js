@@ -11,9 +11,7 @@ const ACCESS_SECRET = process.env.ACCESS_TOKEN_SECRET;
 const REFRESH_SECRET = process.env.REFRESH_TOKEN_SECRET;
 
 if (!ACCESS_SECRET || !REFRESH_SECRET) {
-  throw new Error(
-    'ACCESS_TOKEN_SECRET ve REFRESH_TOKEN_SECRET .env içinde tanımlı olmalı'
-  );
+  throw new Error('JWT secret keys are not set in environment variables');
 }
 
 const register = async ({ name, email, password }) => {
