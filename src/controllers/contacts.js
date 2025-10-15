@@ -1,5 +1,5 @@
 const createHttpError = require('http-errors');
-const Contact = require('../db/models/contact');
+const Contact = require('../db/models/Contact.js');
 
 // GET /contacts
 const getContacts = async (req, res, next) => {
