@@ -1,4 +1,4 @@
-const Contact = require('../db/models/contact');
+const Contact = require('../models/Contact');
 
 const listContacts = async (userId, { skip = 0, limit = 20 } = {}) => {
   return await Contact.find({ userId }).skip(skip).limit(limit);

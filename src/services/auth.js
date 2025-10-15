@@ -1,8 +1,8 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const createError = require('http-errors');
-const User = require('../db/models/user');
-const Session = require('../db/models/session');
+const User = require('../models/User');
+const Session = require('../models/Session');
 
 const ACCESS_EXPIRES_MS = 15 * 60 * 1000; // 15 dakika
 const REFRESH_EXPIRES_MS = 30 * 24 * 60 * 60 * 1000; // 30 gün

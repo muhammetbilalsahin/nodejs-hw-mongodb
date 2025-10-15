@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const createError = require('http-errors');
-const User = require('../models/user');
-const Session = require('../models/session');
+const User = require('../models/User');
+const Session = require('../models/Session');
 
 const ACCESS_SECRET = process.env.ACCESS_TOKEN_SECRET;
 
