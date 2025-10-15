@@ -1,53 +1,31 @@
 const Contact = require('../db/models/contact');
 
-// 🔹 GET all contacts with pagination, sorting, and filtering
-const getAllContacts = async ({ page, perPage, sortBy, sortOrder, query }) => {
-  const skip = (page - 1) * perPage;
-  const sortDirection = sortOrder === 'desc' ? -1 : 1;
-
-  const totalItems = await Contact.countDocuments(query);
-  const totalPages = Math.ceil(totalItems / perPage);
-
-  const contacts = await Contact.find(query)
-    .sort({ [sortBy]: sortDirection })
-    .skip(skip)
-    .limit(Number(perPage));
-
-  return {
-    data: contacts,
-    page: Number(page),
-    perPage: Number(perPage),
-    totalItems,
-    totalPages,
-    hasPreviousPage: page > 1,
-    hasNextPage: page < totalPages,
-  };
+const listContacts = async (userId, { skip = 0, limit = 20 } = {}) => {
+  return await Contact.find({ userId }).skip(skip).limit(limit);
 };
 
-// 🔹 GET contact by ID
-const getContactById = async (contactId) => {
-  return await Contact.findById(contactId);
+const getContactById = async (userId, contactId) => {
+  return await Contact.findOne({ _id: contactId, userId });
 };
 
-// 🔹 POST new contact
-const addContact = async (data) => {
-  return await Contact.create(data);
+const addContact = async (userId, contactData) => {
+  return await Contact.create({ ...contactData, userId });
 };
 
-// 🔹 PATCH update contact
-const patchContact = async (contactId, data) => {
-  return await Contact.findByIdAndUpdate(contactId, data, { new: true });
+const updateContact = async (userId, contactId, data) => {
+  return await Contact.findOneAndUpdate({ _id: contactId, userId }, data, {
+    new: true,
+  });
 };
 
-// 🔹 DELETE contact
-const removeContact = async (contactId) => {
-  return await Contact.findByIdAndDelete(contactId);
+const removeContact = async (userId, contactId) => {
+  return await Contact.findOneAndDelete({ _id: contactId, userId });
 };
 
 module.exports = {
-  getAllContacts,
+  listContacts,
   getContactById,
   addContact,
-  patchContact,
+  updateContact,
   removeContact,
 };
