@@ -1,126 +1,67 @@
-const {
-  getAllContacts,
-  getContactById,
-  addContact,
-  patchContact,
-  removeContact,
-} = require('../services/contacts');
+const createHttpError = require('http-errors');
+const Contact = require('../db/models/contact');
 
-const createError = require('http-errors');
-
-// 🔹 GET /contacts?type=work&isFavourite=true&page=1&perPage=10&sortBy=name&sortOrder=asc
+// GET /contacts
 const getContacts = async (req, res, next) => {
   try {
-    const {
-      page = 1,
-      perPage = 10,
-      sortBy = 'name',
-      sortOrder = 'asc',
-      type,
-      isFavourite,
-    } = req.query;
-
-    const query = {};
-    if (type) query.contactType = type;
-    if (isFavourite !== undefined) query.isFavourite = isFavourite === 'true';
-
-    const result = await getAllContacts({
-      page,
-      perPage,
-      sortBy,
-      sortOrder,
-      query,
-    });
-
-    res.status(200).json({
-      status: 200,
-      message: 'Successfully found contacts!',
-      data: result,
-    });
-  } catch (error) {
-    next(error);
+    const contacts = await Contact.find(); // userId filtresi kaldırıldı
+    res.json({ status: 200, data: contacts });
+  } catch (err) {
+    next(err);
   }
 };
 
-// 🔹 GET /contacts/:contactId
-const getContactByIdCtrl = async (req, res, next) => {
+// GET /contacts/:contactId
+const getContact = async (req, res, next) => {
   try {
-    const { contactId } = req.params;
-    const contact = await getContactById(contactId);
-
-    if (!contact) {
-      throw createError(404, `Contact with id=${contactId} not found`);
-    }
-
-    res.status(200).json({
-      status: 200,
-      message: 'Successfully found contact!',
-      data: contact,
-    });
-  } catch (error) {
-    next(error);
+    const contact = await Contact.findById(req.params.contactId);
+    if (!contact) throw createHttpError(404, 'Contact not found');
+    res.json({ status: 200, data: contact });
+  } catch (err) {
+    next(err);
   }
 };
 
-// 🔹 POST /contacts
-const addContactCtrl = async (req, res, next) => {
+// POST /contacts
+const addContact = async (req, res, next) => {
   try {
-    const newContact = await addContact(req.body);
-
-    res.status(201).json({
-      status: 201,
-      message: 'Successfully added contact!',
-      data: newContact,
-    });
-  } catch (error) {
-    next(error);
+    const contact = await Contact.create(req.body);
+    res.status(201).json({ status: 201, data: contact });
+  } catch (err) {
+    next(err);
   }
 };
 
-// 🔹 PATCH /contacts/:contactId
-const patchContactCtrl = async (req, res, next) => {
+// PATCH /contacts/:contactId
+const updateContact = async (req, res, next) => {
   try {
-    const { contactId } = req.params;
-    const updatedContact = await patchContact(contactId, req.body);
-
-    if (!updatedContact) {
-      throw createError(404, `Contact with id=${contactId} not found`);
-    }
-
-    res.status(200).json({
-      status: 200,
-      message: 'Successfully updated contact!',
-      data: updatedContact,
-    });
-  } catch (error) {
-    next(error);
+    const contact = await Contact.findByIdAndUpdate(
+      req.params.contactId,
+      req.body,
+      { new: true }
+    );
+    if (!contact) throw createHttpError(404, 'Contact not found');
+    res.json({ status: 200, data: contact });
+  } catch (err) {
+    next(err);
   }
 };
 
-// 🔹 DELETE /contacts/:contactId
-const removeContactCtrl = async (req, res, next) => {
+// DELETE /contacts/:contactId
+const removeContact = async (req, res, next) => {
   try {
-    const { contactId } = req.params;
-    const deletedContact = await removeContact(contactId);
-
-    if (!deletedContact) {
-      throw createError(404, `Contact with id=${contactId} not found`);
-    }
-
-    res.status(200).json({
-      status: 200,
-      message: 'Successfully removed contact!',
-      data: deletedContact,
-    });
-  } catch (error) {
-    next(error);
+    const contact = await Contact.findByIdAndDelete(req.params.contactId);
+    if (!contact) throw createHttpError(404, 'Contact not found');
+    res.sendStatus(204);
+  } catch (err) {
+    next(err);
   }
 };
 
 module.exports = {
   getContacts,
-  getContactById: getContactByIdCtrl,
-  addContact: addContactCtrl,
-  patchContact: patchContactCtrl,
-  removeContact: removeContactCtrl,
+  getContact,
+  addContact,
+  updateContact,
+  removeContact,
 };
