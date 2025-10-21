@@ -1,108 +1,97 @@
-const createError = require('http-errors');
-const authService = require('../services/auth');
+import {
+  loginUser,
+  logoutUser,
+  refreshUsersSession,
+  registerUser,
+  requestResetToken,
+  resetPassword,
+} from '../services/auth.js';
+import { ONE_DAY } from '../constants/index.js';
 
-const register = async (req, res, next) => {
-  try {
-    const { name, email, password } = req.body;
-    const user = await authService.register({ name, email, password });
-    res.status(201).json({
-      status: 201,
-      message: 'Successfully registered a user!',
-      data: {
-        user: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        },
-      },
-    });
-  } catch (err) {
-    next(err);
-  }
+export const registerUserController = async (req, res) => {
+  const user = await registerUser(req.body);
+
+  res.status(201).json({
+    status: 201,
+    message: 'Successfully registered a user!',
+    data: user,
+  });
 };
 
-const login = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
-    const { accessToken, refreshToken, sessionId, accessTokenExpiresAt } =
-      await authService.login({ email, password });
+export const loginUserController = async (req, res) => {
+  const session = await loginUser(req.body);
 
-    // cookie'lere hem refreshToken hem sessionId koy
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      // domain: process.env.COOKIE_DOMAIN, // gerekiyorsa uncomment
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 gün
-    };
+  res.cookie('refreshToken', session.refreshToken, {
+    httpOnly: true,
+    expires: new Date(Date.now() + ONE_DAY),
+  });
+  res.cookie('sessionId', session._id, {
+    httpOnly: true,
+    expires: new Date(Date.now() + ONE_DAY),
+  });
 
-    res.cookie('refreshToken', refreshToken, cookieOptions);
-    res.cookie('sessionId', sessionId.toString(), cookieOptions);
-
-    res.status(200).json({
-      status: 200,
-      message: 'Successfully logged in an user!',
-      data: { accessToken },
-    });
-  } catch (err) {
-    next(err);
-  }
+  res.json({
+    status: 200,
+    message: 'Successfully logged in an user!',
+    data: {
+      accessToken: session.accessToken,
+    },
+  });
 };
 
-const refreshSession = async (req, res, next) => {
-  try {
-    const { refreshToken } = req.cookies || {};
-    const { sessionId } = req.cookies || {};
-    if (!refreshToken) throw createError(401, 'No refresh token');
-
-    const {
-      accessToken,
-      refreshToken: newRefreshToken,
-      sessionId: newSessionId,
-    } = await authService.refresh({ sessionId, refreshToken });
-
-    // yeni cookie'leri setle
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    };
-    res.cookie('refreshToken', newRefreshToken, cookieOptions);
-    res.cookie('sessionId', newSessionId.toString(), cookieOptions);
-
-    res.status(200).json({
-      status: 200,
-      message: 'Successfully refreshed a session!',
-      data: { accessToken },
-    });
-  } catch (err) {
-    next(err);
+export const logoutUserController = async (req, res) => {
+  if (req.cookies.sessionId) {
+    await logoutUser(req.cookies.sessionId);
   }
+
+  res.clearCookie('sessionId');
+  res.clearCookie('refreshToken');
+
+  res.status(204).send();
 };
 
-const logout = async (req, res, next) => {
-  try {
-    const { refreshToken } = req.cookies || {};
-    const { sessionId } = req.cookies || {};
-    if (!refreshToken || !sessionId) {
-      // yine de cookie'leri temizleyip 204 dönebiliriz
-      res.clearCookie('refreshToken');
-      res.clearCookie('sessionId');
-      return res.status(204).send();
-    }
-    await authService.logout({ sessionId, refreshToken });
-
-    // cookie temizle
-    res.clearCookie('refreshToken');
-    res.clearCookie('sessionId');
-
-    res.status(204).send();
-  } catch (err) {
-    next(err);
-  }
+const setupSession = (res, session) => {
+  res.cookie('refreshToken', session.refreshToken, {
+    httpOnly: true,
+    expires: new Date(Date.now() + ONE_DAY),
+  });
+  res.cookie('sessionId', session._id, {
+    httpOnly: true,
+    expires: new Date(Date.now() + ONE_DAY),
+  });
 };
 
-module.exports = { register, login, refreshSession, logout };
+export const refreshUserSessionController = async (req, res) => {
+  const session = await refreshUsersSession({
+    sessionId: req.cookies.sessionId,
+    refreshToken: req.cookies.refreshToken,
+  });
+
+  setupSession(res, session);
+
+  res.json({
+    status: 200,
+    message: 'Successfully refreshed a session!',
+    data: {
+      accessToken: session.accessToken,
+    },
+  });
+};
+
+export const requestResetEmailController = async (req, res) => {
+  await requestResetToken(req.body.email);
+  res.json({
+    message: 'Reset password email was successfully sent!',
+    status: 200,
+    data: {},
+  });
+};
+
+export const resetPasswordController = async (req, res) => {
+  await resetPassword(req.body);
+  res.json({
+    message: 'Password was successfully reset!',
+    status: 200,
+    data: {},
+  });
+};

@@ -1,36 +1,45 @@
-require('dotenv').config();
-const express = require('express');
-const cookieParser = require('cookie-parser');
-const contactsRouter = require('./routers/contacts'); // tek tanım
-const notFoundHandler = require('./middlewares/notFoundHandler');
-const errorHandler = require('./middlewares/errorHandler');
-// const authenticate = require('./middlewares/authenticate'); // varsa aç
+import express from 'express';
+import pino from 'pino-http';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import { getEnvVar } from './utils/getEnvVar.js';
+import { notFoundHandler } from './middlewares/notFoundHandler.js';
+import { errorHandler } from './middlewares/errorHandler.js';
+import router from './routers/index.js';
+import { UPLOAD_DIR } from './constants/index.js';
 
-function setupServer() {
+const PORT = Number(getEnvVar('PORT', '3000'));
+
+export const startServer = () => {
   const app = express();
 
-  // Middleware'ler
   app.use(express.json());
+  app.use(cors());
   app.use(cookieParser());
 
-  // Router'lar
-  // Eğer authenticate yoksa direkt kullan
-  app.use('/contacts', contactsRouter);
-  // Eğer authenticate varsa: app.use('/contacts', authenticate, contactsRouter);
+  app.use(
+    pino({
+      transport: {
+        target: 'pino-pretty',
+      },
+    })
+  );
 
-  // Health check
   app.get('/', (req, res) => {
-    res.json({ message: 'API is running' });
+    res.json({
+      message: 'Hello!',
+    });
   });
 
-  // 404 ve global error handler
+  app.use(router);
+
+  app.use('/uploads', express.static(UPLOAD_DIR));
+
   app.use(notFoundHandler);
+
   app.use(errorHandler);
 
-  const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
-}
-
-module.exports = setupServer;
+};
