@@ -1,120 +1,169 @@
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const createError = require('http-errors');
-const User = require('../models/User');
-const Session = require('../models/Session');
+import bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
+import { UsersCollection } from '../db/models/user.js';
+import createHttpError from 'http-errors';
+import { FIFTEEN_MINUTES, ONE_DAY, TEMPLATES_DIR } from '../constants/index.js';
+import { SessionsCollection } from '../db/models/session.js';
+import jwt from 'jsonwebtoken';
+import { SMTP } from '../constants/index.js';
+import { getEnvVar } from '../utils/getEnvVar.js';
+import { sendEmail } from '../utils/sendMail.js';
+import handlebars from 'handlebars';
+import path from 'node:path';
+import fs from 'node:fs/promises';
 
-const ACCESS_EXPIRES_MS = 15 * 60 * 1000; // 15 dakika
-const REFRESH_EXPIRES_MS = 30 * 24 * 60 * 60 * 1000; // 30 gün
+export const registerUser = async (payload) => {
+  const user = await UsersCollection.findOne({ email: payload.email });
+  if (user) throw createHttpError(409, 'Email in use');
 
-const ACCESS_SECRET = process.env.ACCESS_TOKEN_SECRET;
-const REFRESH_SECRET = process.env.REFRESH_TOKEN_SECRET;
+  const encryptedPassword = await bcrypt.hash(payload.password, 10);
 
-if (!ACCESS_SECRET || !REFRESH_SECRET) {
-  throw new Error('JWT secret keys are not set in environment variables');
-}
-
-const register = async ({ name, email, password }) => {
-  const existing = await User.findOne({ email });
-  if (existing) throw createError(409, 'Email in use');
-
-  const hashed = await bcrypt.hash(password, 10);
-  const user = await User.create({ name, email, password: hashed });
-  return user;
-};
-
-const generateAccessToken = (payload) => {
-  // JWT içerisine user id koyuyoruz
-  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: '15m' });
-};
-
-const generateRefreshToken = (payload) => {
-  return jwt.sign(payload, REFRESH_SECRET, { expiresIn: '30d' });
-};
-
-const login = async ({ email, password }) => {
-  const user = await User.findOne({ email });
-  if (!user) throw createError(401, 'Email or password is wrong');
-
-  const matched = await bcrypt.compare(password, user.password);
-  if (!matched) throw createError(401, 'Email or password is wrong');
-
-  // sil eski oturumlar
-  await Session.deleteMany({ userId: user._id });
-
-  // tokenler oluştur
-  const accessToken = generateAccessToken({
-    _id: user._id.toString(),
-    email: user.email,
+  return await UsersCollection.create({
+    ...payload,
+    password: encryptedPassword,
   });
-  const refreshToken = generateRefreshToken({
-    _id: user._id.toString(),
-    email: user.email,
-  });
+};
 
-  const accessTokenValidUntil = new Date(Date.now() + ACCESS_EXPIRES_MS);
-  const refreshTokenValidUntil = new Date(Date.now() + REFRESH_EXPIRES_MS);
+export const loginUser = async (payload) => {
+  const user = await UsersCollection.findOne({ email: payload.email });
+  if (!user) {
+    throw createHttpError(404, 'User not found');
+  }
+  const isEqual = await bcrypt.compare(payload.password, user.password);
 
-  const session = await Session.create({
+  if (!isEqual) {
+    throw createHttpError(401, 'Unauthorized');
+  }
+
+  await SessionsCollection.deleteOne({ userId: user._id });
+
+  const accessToken = randomBytes(30).toString('base64');
+  const refreshToken = randomBytes(30).toString('base64');
+
+  return await SessionsCollection.create({
     userId: user._id,
     accessToken,
     refreshToken,
-    accessTokenValidUntil,
-    refreshTokenValidUntil,
+    accessTokenValidUntil: new Date(Date.now() + FIFTEEN_MINUTES),
+    refreshTokenValidUntil: new Date(Date.now() + ONE_DAY),
   });
+};
+
+export const logoutUser = async (sessionId) => {
+  await SessionsCollection.deleteOne({ _id: sessionId });
+};
+
+const createSession = () => {
+  const accessToken = randomBytes(30).toString('base64');
+  const refreshToken = randomBytes(30).toString('base64');
 
   return {
     accessToken,
     refreshToken,
-    sessionId: session._id,
-    accessTokenExpiresAt: accessTokenValidUntil,
+    accessTokenValidUntil: new Date(Date.now() + FIFTEEN_MINUTES),
+    refreshTokenValidUntil: new Date(Date.now() + ONE_DAY),
   };
 };
 
-const refresh = async ({ sessionId, refreshToken }) => {
-  // tercihen sessionId ile doğrula, yoksa refreshToken ile ara
-  const session = sessionId
-    ? await Session.findOne({ _id: sessionId, refreshToken })
-    : await Session.findOne({ refreshToken });
-
-  if (!session) throw createError(401, 'Invalid session or refresh token');
-
-  if (new Date() > session.refreshTokenValidUntil) {
-    // sil
-    await Session.deleteOne({ _id: session._id });
-    throw createError(401, 'Refresh token expired');
-  }
-
-  // sil eski oturum
-  await Session.deleteOne({ _id: session._id });
-
-  // yeni token üret
-  const payload = { _id: session.userId.toString() };
-  const accessToken = generateAccessToken(payload);
-  const newRefreshToken = generateRefreshToken(payload);
-  const accessTokenValidUntil = new Date(Date.now() + ACCESS_EXPIRES_MS);
-  const refreshTokenValidUntil = new Date(Date.now() + REFRESH_EXPIRES_MS);
-
-  const newSession = await Session.create({
-    userId: session.userId,
-    accessToken,
-    refreshToken: newRefreshToken,
-    accessTokenValidUntil,
-    refreshTokenValidUntil,
+export const refreshUsersSession = async ({ sessionId, refreshToken }) => {
+  const session = await SessionsCollection.findOne({
+    _id: sessionId,
+    refreshToken,
   });
 
-  return {
-    accessToken,
-    refreshToken: newRefreshToken,
-    sessionId: newSession._id,
-  };
+  if (!session) {
+    throw createHttpError(401, 'Session not found');
+  }
+
+  const isSessionTokenExpired =
+    new Date() > new Date(session.refreshTokenValidUntil);
+
+  if (isSessionTokenExpired) {
+    throw createHttpError(401, 'Session token expired');
+  }
+
+  const newSession = createSession();
+
+  await SessionsCollection.deleteOne({ _id: sessionId, refreshToken });
+
+  return await SessionsCollection.create({
+    userId: session.userId,
+    ...newSession,
+  });
 };
 
-const logout = async ({ sessionId, refreshToken }) => {
-  // sessionId ve refresh token'a göre sil
-  const criteria = { _id: sessionId, refreshToken };
-  await Session.deleteOne(criteria);
-  return;
+export const requestResetToken = async (email) => {
+  const user = await UsersCollection.findOne({ email });
+  if (!user) {
+    throw createHttpError(404, 'User not found');
+  }
+  const resetToken = jwt.sign(
+    {
+      sub: user._id,
+      email,
+    },
+    getEnvVar('JWT_SECRET'),
+    {
+      expiresIn: '15m',
+    }
+  );
+
+  const resetPasswordTemplatePath = path.join(
+    TEMPLATES_DIR,
+    'reset-password-email.html'
+  );
+
+  const templateSource = (
+    await fs.readFile(resetPasswordTemplatePath)
+  ).toString();
+
+  const template = handlebars.compile(templateSource);
+  const html = template({
+    name: user.name,
+    link: `${getEnvVar('APP_DOMAIN')}/reset-password?token=${resetToken}`,
+  });
+
+  try {
+    await sendEmail({
+      from: getEnvVar(SMTP.SMTP_FROM),
+      to: email,
+      subject: 'Reset your password',
+      html,
+    });
+  } catch {
+    throw createHttpError(
+      500,
+      'Failed to send the email, please try again later.'
+    );
+  }
 };
 
-module.exports = { register, login, refresh, logout };
+export const resetPassword = async (payload) => {
+  let entries;
+
+  try {
+    entries = jwt.verify(payload.token, getEnvVar('JWT_SECRET'));
+  } catch (err) {
+    if (err instanceof Error)
+      throw createHttpError(401, 'Token is invalid or expired.');
+    throw err;
+  }
+
+  const user = await UsersCollection.findOne({
+    email: entries.email,
+    _id: entries.sub,
+  });
+
+  if (!user) {
+    throw createHttpError(404, 'User not found');
+  }
+
+  const encryptedPassword = await bcrypt.hash(payload.password, 10);
+
+  await UsersCollection.updateOne(
+    { _id: user._id },
+    { password: encryptedPassword }
+  );
+
+  await SessionsCollection.deleteMany({ userId: user._id });
+};

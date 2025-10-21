@@ -1,16 +1,54 @@
-const express = require('express');
-const router = express.Router();
-const {
-  register,
-  login,
-  refreshSession,
-  logout,
-} = require('../controllers/auth');
+import { Router } from 'express';
+import { ctrlWrapper } from '../utils/ctrlWrapper.js';
+import {
+  loginUserSchema,
+  registerUserSchema,
+  requestResetEmailSchema,
+  resetPasswordSchema,
+} from '../validation/auth.js';
+import {
+  loginUserController,
+  logoutUserController,
+  refreshUserSessionController,
+  registerUserController,
+  requestResetEmailController,
+  resetPasswordController,
+} from '../controllers/auth.js';
+import { validateBody } from '../middlewares/validateBody.js';
 
-// validation middleware kullanıyorsan burada ekle (örn. Joi)
-router.post('/register', register);
-router.post('/login', login);
-router.post('/refresh', refreshSession);
-router.post('/logout', logout);
+const router = Router();
 
-module.exports = router;
+router.get('/', (req, res) => {
+  res.json({
+    message: 'auth router',
+  });
+});
+
+router.post(
+  '/register',
+  validateBody(registerUserSchema),
+  ctrlWrapper(registerUserController)
+);
+
+router.post(
+  '/login',
+  validateBody(loginUserSchema),
+  ctrlWrapper(loginUserController)
+);
+
+router.post('/logout', ctrlWrapper(logoutUserController));
+router.post('/refresh', ctrlWrapper(refreshUserSessionController));
+
+router.post(
+  '/send-reset-email',
+  validateBody(requestResetEmailSchema),
+  ctrlWrapper(requestResetEmailController)
+);
+
+router.post(
+  '/reset-pwd',
+  validateBody(resetPasswordSchema),
+  ctrlWrapper(resetPasswordController)
+);
+
+export default router;
