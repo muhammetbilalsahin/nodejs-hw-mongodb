@@ -8,6 +8,9 @@ import { errorHandler } from './middlewares/errorHandler.js';
 import router from './routers/index.js';
 import { UPLOAD_DIR } from './constants/index.js';
 
+import swaggerUi from 'swagger-ui-express';
+import swaggerDocument from '../docs/swagger.json' assert { type: 'json' };
+
 const PORT = Number(getEnvVar('PORT', '3000'));
 
 export const startServer = () => {
@@ -30,6 +33,8 @@ export const startServer = () => {
       message: 'Hello!',
     });
   });
+
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
   app.use(router);
 
