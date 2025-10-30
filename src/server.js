@@ -7,11 +7,17 @@ import { notFoundHandler } from './middlewares/notFoundHandler.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import router from './routers/index.js';
 import { UPLOAD_DIR } from './constants/index.js';
-
 import swaggerUi from 'swagger-ui-express';
-import swaggerDocument from '../docs/swagger.json' assert { type: 'json' };
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const PORT = Number(getEnvVar('PORT', '3000'));
+
+const swaggerPath = path.join(__dirname, '../docs/swagger.json');
+const swaggerDocument = JSON.parse(fs.readFileSync(swaggerPath, 'utf8'));
 
 export const startServer = () => {
   const app = express();
@@ -37,11 +43,8 @@ export const startServer = () => {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
   app.use(router);
-
   app.use('/uploads', express.static(UPLOAD_DIR));
-
   app.use(notFoundHandler);
-
   app.use(errorHandler);
 
   app.listen(PORT, () => {
