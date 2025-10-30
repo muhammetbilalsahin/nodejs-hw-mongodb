@@ -1,0 +1,55 @@
+tags:
+  - Auth
+summary: Refresh user session
+operationId: refreshUserSession
+description: Refresh user session and generate new access token.
+security:
+  - bearerAuth: []
+requestBody:
+  description: Refresh token and session Id.
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required:
+          - sessionId
+          - refreshToken
+        properties:
+          sessionId:
+            type: string
+            description: session Id.
+            example: '	j%3A%2267967f03b4f40be22f0f28f7%22'
+          refreshToken:
+            type: string
+            description: Refresh token.
+            example: 'aC1eOdtnyBjx%2F0oC9uWKFK9BwgV3JsCW7LuA53%2Fi'
+responses:
+  '200':
+    description: Successfully refreshed user session.
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - status
+            - message
+            - data
+          properties:
+            status:
+              type: integer
+              example: 200
+            message:
+              type: string
+              example: 'Successfully refreshed a session!'
+            data:
+              type: object
+              properties:
+                accessToken:
+                  type: string
+                  description: New access token.
+                  example: 'r4bd5b/uIL8uzPw+iqPTijsLy3zpSwOkDEA0U8zM'
+  '401':
+    $ref: ../../components/responses/401.yaml
+  '500':
+    $ref: ../../components/responses/500.yaml
