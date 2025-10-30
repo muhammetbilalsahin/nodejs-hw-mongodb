@@ -1,0 +1,22 @@
+tags:
+  - Auth
+summary: User logout
+operationId: logoutUser
+description: User log out.
+security:
+  - bearerAuth: []
+parameters:
+  - in: cookie
+    name: sessionId
+    description: User session Id.
+    required: true
+    schema:
+      type: string
+      example: 'j%3A%2267967ae6737a46114f32bb6a%22'
+responses:
+  '204':
+    description: Successfully user logout. No content returned.
+  '400':
+    $ref: ../../components/responses/400.yaml
+  '500':
+    $ref: ../../components/responses/500.yaml

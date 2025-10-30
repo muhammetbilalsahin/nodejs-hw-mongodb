@@ -1,0 +1,52 @@
+tags:
+  - Auth
+summary: Register new user
+description: New user registration
+operationId: authRegister
+security: []
+requestBody:
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          email:
+            type: string
+            example: teacher01@mail.com
+          name:
+            type: string
+            example: Teacher01
+          password:
+            type: string
+            example: Pa$$w0rd
+      examples:
+        /auth/register:
+          value:
+            email: teacher01@mail.com
+            name: Teacher01
+            password: Pa$$w0rd
+responses:
+  '201':
+    description: 'Created a user'
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - status
+            - message
+            - data
+          properties:
+            status:
+              type: integer
+              example: 201
+            message:
+              type: string
+              example: Successfully registered a user!
+            data:
+              type: object
+              $ref: ../../components/schemas/userRegister.yaml
+  '409':
+    $ref: ../../components/responses/409.yaml
+  '500':
+    $ref: ../../components/responses/500.yaml

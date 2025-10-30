@@ -1,0 +1,74 @@
+tags:
+  - Contacts
+summary: Patch contact
+operationId: patchContact
+description: 'Modify a contact with payload'
+security:
+  - bearerAuth: []
+parameters:
+  - in: path
+    name: id
+    required: true
+    schema:
+      type: string
+      example: '678bf8af14d55985f0900f6e'
+requestBody:
+  content:
+    multipart/form-data:
+      schema:
+        type: object
+        properties:
+          name:
+            type: string
+            description: Contact name.
+            example: 'John Doe'
+          phoneNumber:
+            type: string
+            description: Phone number.
+            example: '+380000000221'
+          email:
+            type: string
+            description: Email address.
+            example: 'johndoe@example.com'
+          isFavourite:
+            type: boolean
+            description: is favorite flag.
+            example: true
+          contactType:
+            type: string
+            description: contact type.
+            enum: [work, home, personal]
+            example: 'personal'
+          photo:
+            type: string
+            description: Contact photo
+            format: binary
+responses:
+  '200':
+    description: Patch a contact
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - status
+            - message
+            - data
+          properties:
+            status:
+              type: integer
+              example: 200
+            message:
+              type: string
+              example: Successfully patched a contact!
+            data:
+              type: object
+              $ref: '../../../components/schemas/contact.yaml'
+  '400':
+    $ref: '../../../components/responses/400.yaml'
+  '401':
+    $ref: '../../../components/responses/401.yaml'
+  '404':
+    $ref: '../../../components/responses/404.yaml'
+  '500':
+    $ref: '../../../components/responses/500.yaml'
